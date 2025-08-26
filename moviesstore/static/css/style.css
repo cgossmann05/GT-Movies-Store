@@ -1,5 +1,5 @@
 .bg-index{
-  background: url("/static/img/background.jpg") no-repeat
+  background: url("https://raw.githubusercontent.com/PacktPublishing/Django-5-for-the-Impatient-Second-Edition/3d1425f06d7486285d0bead570f37654ec4b5282/Chapter12/moviesstore/moviesstore/static/img/background.jpg") no-repeat
     fixed;
   background-size: 100% auto;
 }
