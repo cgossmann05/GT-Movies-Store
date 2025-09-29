@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Movie, Review, MovieRequest
+from .models import Movie, Review, MovieRequest, Petition, PetitionVote
+from .forms import PetitionForm
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 
 # Create your views here.
 # movies = [
@@ -103,3 +105,64 @@ def delete_request(request, request_id):
     movie_request = get_object_or_404(MovieRequest, id=request_id, user=request.user)
     movie_request.delete()
     return redirect('movies.requests')
+
+@login_required
+def petition_list(request):
+    petitions = Petition.objects.filter(status='active').order_by('-created_at')
+    user_voted_petitions = set(
+        PetitionVote.objects.filter(user=request.user).values_list('petition_id', flat=True)
+    )
+    template_data = {
+        'title': 'Movie Petitions',
+        'petitions': petitions
+    }
+    return render(request, 'movies/petition_list.html', {
+        'template_data': template_data,
+        'user_voted_petitions': user_voted_petitions
+    })
+
+@login_required
+def petition_create(request):
+    if request.method == 'POST':
+        form = PetitionForm(request.POST)
+        if form.is_valid():
+            petition = form.save(commit=False)
+            petition.created_by = request.user
+            petition.save()
+            messages.success(request, 'Petition created successfully!')
+            return redirect('movies.petition_list')
+    else:
+        form = PetitionForm()
+
+    template_data = {
+        'title': 'Create Movie Petition',
+        'form': form
+    }
+    return render(request, 'movies/petition_create.html', {'template_data': template_data})
+
+@login_required
+def petition_vote(request, pk):
+    if request.method == 'POST':
+        petition = get_object_or_404(Petition, pk=pk, status='active')
+        vote_value = request.POST.get('vote')
+
+        if vote_value not in ['yes', 'no']:
+            messages.error(request, 'Invalid vote.')
+            return redirect('movies.petition_list')
+
+        vote_boolean = vote_value == 'yes'
+
+        try:
+            existing_vote = PetitionVote.objects.get(petition=petition, user=request.user)
+            existing_vote.vote = vote_boolean
+            existing_vote.save()
+            messages.success(request, 'Your vote has been updated.')
+        except PetitionVote.DoesNotExist:
+            PetitionVote.objects.create(
+                petition=petition,
+                user=request.user,
+                vote=vote_boolean
+            )
+            messages.success(request, 'Your vote has been recorded.')
+
+    return redirect('movies.petition_list')
